@@ -32,23 +32,24 @@ export default function Navbar() {
         body: JSON.stringify({ FixedAmountRequest: { recipient: session.address } }),
       });
       if (res.ok) {
-        setFaucetMsg("Test coins sent! Balance will update shortly.");
-        // Refresh balance after a short delay
+        setFaucetMsg("✓ Test coins sent! Updating balance...");
         setTimeout(() => {
           suiClient
             .getBalance({ owner: session.address })
             .then((b) => setBalance(mistToSui(BigInt(b.totalBalance)).toFixed(3)))
             .catch(() => {});
         }, 4000);
+      } else if (res.status === 429) {
+        setFaucetMsg("Rate limited — use faucet.testnet.sui.io directly.");
       } else {
         const data = await res.json().catch(() => ({}));
-        setFaucetMsg(data?.error ?? "Faucet request failed. Try again later.");
+        setFaucetMsg(data?.error ?? "Faucet unavailable. Try again later.");
       }
     } catch {
-      setFaucetMsg("Could not reach faucet. Check your connection.");
+      setFaucetMsg("Could not reach faucet. Try faucet.testnet.sui.io");
     } finally {
       setFaucetLoading(false);
-      setTimeout(() => setFaucetMsg(null), 6000);
+      setTimeout(() => setFaucetMsg(null), 8000);
     }
   };
 
@@ -94,7 +95,20 @@ export default function Navbar() {
                   </button>
                 </div>
                 {faucetMsg && (
-                  <span className="text-xs text-green-400 mt-0.5">{faucetMsg}</span>
+                  <span className="text-xs mt-0.5">
+                    {faucetMsg.includes("faucet.testnet") ? (
+                      <a
+                        href="https://faucet.testnet.sui.io"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-yellow-400 underline"
+                      >
+                        Rate limited — get coins here
+                      </a>
+                    ) : (
+                      <span className="text-green-400">{faucetMsg}</span>
+                    )}
+                  </span>
                 )}
               </div>
 
