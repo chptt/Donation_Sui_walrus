@@ -4,8 +4,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const PROVER_URL =
-  process.env.NEXT_PUBLIC_PROVER_URL ?? "https://prover-dev.mystenlabs.com/v1";
+const PROVER_URL = "https://prover-dev.mystenlabs.com/v1";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
