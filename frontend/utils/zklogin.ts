@@ -21,7 +21,9 @@ import {
   generateRandomness,
   getExtendedEphemeralPublicKey,
   jwtToAddress,
+  genAddressSeed,
 } from "@mysten/sui/zklogin";
+import { decodeJwt } from "@mysten/sui/zklogin";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { SuiClient } from "@mysten/sui/client";
 import { GOOGLE_CLIENT_ID, REDIRECT_URI, PROVER_URL } from "./constants";
@@ -45,6 +47,7 @@ export interface ZkLoginSession {
   maxEpoch: number;
   randomness: string;
   userSalt: string;
+  addressSeed: string;
 }
 
 export interface ZkProof {
@@ -149,12 +152,20 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
 
   const proof: ZkProof = await proofResponse.json();
 
+  // Compute addressSeed from JWT claims + salt (must match what the prover used)
+  const decodedJwt = decodeJwt(jwt);
+  const addressSeed: string = (proof as ZkProof & { addressSeed?: string }).addressSeed
+    ?? genAddressSeed(BigInt(userSalt), "sub", decodedJwt.sub as string,
+        Array.isArray(decodedJwt.aud) ? decodedJwt.aud[0] as string : decodedJwt.aud as string
+       ).toString();
+
   // Persist full session in localStorage
   localStorage.setItem(KEY_JWT, jwt);
   localStorage.setItem(KEY_ZK_PROOF, JSON.stringify(proof));
   localStorage.setItem(KEY_ADDRESS, address);
+  localStorage.setItem("zklogin_address_seed", addressSeed);
 
-  return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt };
+  return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt, addressSeed };
 }
 
 // ─── Session retrieval ────────────────────────────────────────────────────────
@@ -173,8 +184,9 @@ export function getZkLoginSession(): ZkLoginSession | null {
 
     const proof = JSON.parse(proofRaw) as ZkProof;
     const ephemeralKeypair = Ed25519Keypair.fromSecretKey(secretKey);
+    const addressSeed = localStorage.getItem("zklogin_address_seed") ?? userSalt;
 
-    return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt };
+    return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt, addressSeed };
   } catch {
     return null;
   }
@@ -190,6 +202,7 @@ export function clearZkLoginSession(): void {
     KEY_ZK_PROOF,
     KEY_JWT,
     KEY_ADDRESS,
+    "zklogin_address_seed",
   ].forEach((k) => localStorage.removeItem(k));
 }
 
