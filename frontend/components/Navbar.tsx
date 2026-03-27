@@ -20,33 +20,30 @@ export default function Navbar() {
       .catch(() => setBalance("—"));
   }, [session]);
 
-  // Request testnet coins from the Sui faucet
   const requestFaucet = async () => {
     if (!session) return;
     setFaucetLoading(true);
     setFaucetMsg(null);
     try {
-      const res = await fetch("https://faucet.testnet.sui.io/v1/gas", {
+      const res = await fetch("/api/faucet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ FixedAmountRequest: { recipient: session.address } }),
+        body: JSON.stringify({ address: session.address }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setFaucetMsg("✓ Test coins sent! Updating balance...");
+        setFaucetMsg("✓ Test coins sent! Balance updating...");
         setTimeout(() => {
           suiClient
             .getBalance({ owner: session.address })
             .then((b) => setBalance(mistToSui(BigInt(b.totalBalance)).toFixed(3)))
             .catch(() => {});
         }, 4000);
-      } else if (res.status === 429) {
-        setFaucetMsg("Rate limited — use faucet.testnet.sui.io directly.");
       } else {
-        const data = await res.json().catch(() => ({}));
         setFaucetMsg(data?.error ?? "Faucet unavailable. Try again later.");
       }
     } catch {
-      setFaucetMsg("Could not reach faucet. Try faucet.testnet.sui.io");
+      setFaucetMsg("Could not reach faucet. Try again.");
     } finally {
       setFaucetLoading(false);
       setTimeout(() => setFaucetMsg(null), 8000);
@@ -95,19 +92,8 @@ export default function Navbar() {
                   </button>
                 </div>
                 {faucetMsg && (
-                  <span className="text-xs mt-0.5">
-                    {faucetMsg.includes("faucet.testnet") ? (
-                      <a
-                        href="https://faucet.testnet.sui.io"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-yellow-400 underline"
-                      >
-                        Rate limited — get coins here
-                      </a>
-                    ) : (
-                      <span className="text-green-400">{faucetMsg}</span>
-                    )}
+                  <span className={`text-xs mt-0.5 ${faucetMsg.startsWith("✓") ? "text-green-400" : "text-yellow-400"}`}>
+                    {faucetMsg}
                   </span>
                 )}
               </div>
