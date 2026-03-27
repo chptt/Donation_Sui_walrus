@@ -23,7 +23,9 @@ export async function uploadToWalrus(file: File): Promise<WalrusUploadResult> {
   const data = await response.json();
   const blobId: string =
     data?.newlyCreated?.blobObject?.blobId ??
-    data?.alreadyCertified?.blobId;
+    data?.newlyCreated?.blob_object?.blob_id ??
+    data?.alreadyCertified?.blobId ??
+    data?.alreadyCertified?.blob_id;
 
   if (!blobId) {
     throw new Error("No blobId in response: " + JSON.stringify(data));

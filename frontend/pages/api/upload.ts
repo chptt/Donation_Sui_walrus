@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Empty file" });
     }
 
-    const walrusRes = await fetch(`${WALRUS_PUBLISHER}/v1/store?epochs=5`, {
+    const walrusRes = await fetch(`${WALRUS_PUBLISHER}/v1/blobs?epochs=5`, {
       method: "PUT",
       headers: {
         "Content-Type": contentType,

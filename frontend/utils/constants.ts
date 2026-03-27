@@ -47,3 +47,6 @@ export const MODULE_NAME = "donation_platform";
 
 /** Number of epochs a Walrus blob should be stored for */
 export const WALRUS_EPOCHS = 5;
+
+/** Walrus store endpoint path (updated from /v1/store to /v1/blobs) */
+export const WALRUS_STORE_PATH = "/v1/blobs";
