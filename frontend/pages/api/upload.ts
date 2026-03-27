@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const walrusRes = await fetch(`${WALRUS_PUBLISHER}/v1/store?epochs=5`, {
       method: "PUT",
       headers: { "Content-Type": contentType },
-      body: bodyBytes,
+      body: bodyBytes as unknown as BodyInit,
     });
 
     const text = await walrusRes.text();
