@@ -1,52 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Required so Vercel registers this as a dynamic API route
-export async function GET() {
-  return NextResponse.json({ ok: true, endpoint: "PUT /api/upload" });
-}
-
 const WALRUS_PUBLISHER =
   process.env.NEXT_PUBLIC_WALRUS_PUBLISHER_URL ??
   "https://publisher.walrus-testnet.walrus.space";
 
+export async function GET() {
+  return NextResponse.json({ ok: true, endpoint: "PUT /api/upload" });
+}
+
 export async function PUT(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "application/octet-stream";
+    const buffer = await req.arrayBuffer();
 
-    // Read body as Buffer — avoids duplex streaming issues on Vercel/Node
-    const bytes = await req.bytes();
-
-    if (!bytes || bytes.length === 0) {
-      return NextResponse.json({ error: "Empty file received" }, { status: 400 });
+    if (buffer.byteLength === 0) {
+      return NextResponse.json({ error: "Empty file" }, { status: 400 });
     }
 
-    const walrusRes = await fetch(
-      `${WALRUS_PUBLISHER}/v1/store?epochs=5`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": contentType,
-          "Content-Length": String(bytes.length),
-        },
-        body: bytes,
-      }
-    );
+    const walrusRes = await fetch(`${WALRUS_PUBLISHER}/v1/store?epochs=5`, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: Buffer.from(buffer),
+    });
 
     const text = await walrusRes.text();
+    console.log("Walrus response:", walrusRes.status, text.slice(0, 200));
 
     if (!walrusRes.ok) {
-      console.error("Walrus error:", walrusRes.status, text);
       return NextResponse.json(
         { error: `Walrus ${walrusRes.status}: ${text.slice(0, 300)}` },
         { status: walrusRes.status }
       );
     }
 
-    const data = JSON.parse(text);
-    return NextResponse.json(data);
+    return NextResponse.json(JSON.parse(text));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("Upload proxy error:", msg);
+    console.error("Upload error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
