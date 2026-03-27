@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Required so Vercel registers this as a dynamic API route
+export async function GET() {
+  return NextResponse.json({ ok: true, endpoint: "PUT /api/upload" });
+}
+
 const WALRUS_PUBLISHER =
   process.env.NEXT_PUBLIC_WALRUS_PUBLISHER_URL ??
   "https://publisher.walrus-testnet.walrus.space";
