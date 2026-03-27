@@ -9,7 +9,8 @@ import { useZkLogin } from "@/context/ZkLoginContext";
 import type { CampaignOnChain } from "@/utils/sui";
 
 export default function CampaignDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams();
+  const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : null;
   const { session } = useZkLogin();
 
   const [campaign, setCampaign] = useState<CampaignOnChain | null>(null);
