@@ -1,3 +1,4 @@
+// walrus upload utility v2
 import { WALRUS_AGGREGATOR_URL } from "./constants";
 
 export interface WalrusUploadResult {

@@ -17,6 +17,7 @@ export default function CreateCampaignPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
+  // v2
 
   if (!session) {
     return (
