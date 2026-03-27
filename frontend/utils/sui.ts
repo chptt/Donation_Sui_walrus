@@ -12,7 +12,8 @@
 
 import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
-import { getZkLoginSignature } from "@mysten/sui/zklogin";
+import { getZkLoginSignature, genAddressSeed } from "@mysten/sui/zklogin";
+import { decodeJwt } from "@mysten/sui/zklogin";
 import { SUI_NETWORK, PACKAGE_ID, MODULE_NAME } from "./constants";
 import type { ZkLoginSession } from "./zklogin";
 
@@ -110,13 +111,21 @@ async function executeWithZkLogin(
     signer: session.ephemeralKeypair,
   });
 
+  // Derive the address seed from JWT sub claim + salt
+  // This must match exactly what was used to derive the address in zklogin.ts
+  const decodedJwt = decodeJwt(session.jwt);
+  const sub = decodedJwt.sub as string;
+  const iss = decodedJwt.iss as string;
+  const aud = Array.isArray(decodedJwt.aud) ? decodedJwt.aud[0] : decodedJwt.aud as string;
+  const addressSeed = genAddressSeed(BigInt(session.userSalt), "sub", sub, aud).toString();
+
   // Build the full zkLogin signature from proof + ephemeral sig
   const zkSig = getZkLoginSignature({
     inputs: {
       proofPoints: session.proof.proofPoints,
       issBase64Details: session.proof.issBase64Details,
       headerBase64: session.proof.headerBase64,
-      addressSeed: session.userSalt,
+      addressSeed,
     },
     maxEpoch: session.maxEpoch,
     userSignature: ephemeralSig,
