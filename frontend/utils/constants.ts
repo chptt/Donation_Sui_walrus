@@ -24,7 +24,7 @@ export const REDIRECT_URI =
 /** Mysten Labs zkLogin prover endpoint */
 export const PROVER_URL =
   process.env.NEXT_PUBLIC_PROVER_URL ??
-  "https://prover-dev.mystenlabs.com/v1";
+  "https://api.shinami.com/zklogin/v1/prover";
 
 /**
  * Walrus publisher — used to PUT blobs (upload images).
