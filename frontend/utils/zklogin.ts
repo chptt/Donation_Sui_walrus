@@ -132,7 +132,7 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
     ephemeralKeypair.getPublicKey()
   );
 
-  const proofResponse = await fetch(PROVER_URL, {
+  const proofResponse = await fetch("/api/zkproof", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -18,23 +18,19 @@ module donation_platform::donation_platform {
 
     /// Shared object representing a single donation campaign.
     /// `walrus_blob_id` is the Walrus storage reference for the campaign image.
-    /// Only the blob ID string is stored here — the actual image lives on Walrus.
     public struct Campaign has key {
         id: UID,
         creator: address,
         title: String,
         description: String,
-        /// Target amount in MIST (1 SUI = 1_000_000_000 MIST)
         target_amount: u64,
-        /// Total amount raised so far in MIST
         amount_raised: u64,
-        /// Walrus blob ID — the off-chain image reference stored permanently on-chain.
-        /// Reconstruct image URL as: https://aggregator.walrus-testnet.walrus.space/v1/<walrus_blob_id>
+        /// Walrus blob ID stored permanently on-chain.
+        /// Image URL: https://aggregator.walrus-testnet.walrus.space/v1/<walrus_blob_id>
         walrus_blob_id: String,
         is_active: bool,
     }
 
-    /// Capability object sent to the campaign creator — allows them to deactivate the campaign.
     public struct CampaignCap has key, store {
         id: UID,
         campaign_id: address,
@@ -60,8 +56,7 @@ module donation_platform::donation_platform {
     // ─── Entry Functions ──────────────────────────────────────────────────────
 
     /// Create a new campaign.
-    /// `walrus_blob_id` must be a non-empty string returned by Walrus after uploading the image.
-    /// This blob ID is stored permanently on-chain and links the campaign to its proof image.
+    /// `walrus_blob_id` is the Walrus blob ID returned after uploading the proof image.
     public entry fun create_campaign(
         title: vector<u8>,
         description: vector<u8>,
@@ -77,10 +72,12 @@ module donation_platform::donation_platform {
         let campaign_id = campaign_uid.to_address();
         let creator = ctx.sender();
 
+        // Convert bytes to strings
         let title_str = title.to_string();
+        let desc_str = description.to_string();
         let blob_str = walrus_blob_id.to_string();
 
-        // Emit creation event so the frontend can index campaigns by querying events
+        // Emit event using copies of the strings (String has copy ability via std::string)
         event::emit(CampaignCreated {
             campaign_id,
             creator,
@@ -93,17 +90,15 @@ module donation_platform::donation_platform {
             id: campaign_uid,
             creator,
             title: title_str,
-            description: description.to_string(),
+            description: desc_str,
             target_amount,
             amount_raised: 0,
-            walrus_blob_id: blob_str, // ← Walrus blob ID stored permanently on-chain
+            walrus_blob_id: blob_str,
             is_active: true,
         };
 
-        // Share the campaign so anyone can donate to it
         transfer::share_object(campaign);
 
-        // Send capability to creator so they can deactivate later
         let cap = CampaignCap {
             id: object::new(ctx),
             campaign_id,
@@ -112,8 +107,6 @@ module donation_platform::donation_platform {
     }
 
     /// Donate SUI to a campaign.
-    /// Funds are transferred directly to the campaign creator.
-    /// The raised amount is updated on-chain for full transparency.
     public entry fun donate(
         campaign: &mut Campaign,
         payment: Coin<SUI>,
@@ -132,11 +125,10 @@ module donation_platform::donation_platform {
             new_total: campaign.amount_raised,
         });
 
-        // Transfer funds directly to the campaign creator
         transfer::public_transfer(payment, campaign.creator);
     }
 
-    /// Creator can deactivate their campaign using the CampaignCap.
+    /// Creator can deactivate their campaign.
     public entry fun deactivate_campaign(
         campaign: &mut Campaign,
         _cap: &CampaignCap,
