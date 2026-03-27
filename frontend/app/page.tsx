@@ -25,16 +25,16 @@ export default function HomePage() {
       {/* Hero */}
       <div className="text-center py-16">
         <h1 className="text-4xl font-bold mb-4">
-          Decentralized Donations on{" "}
-          <span className="text-[#4DA2FF]">Sui</span>
+          Make a Difference with{" "}
+          <span className="text-[#4DA2FF]">Star Donation</span>
         </h1>
         <p className="text-gray-400 text-lg max-w-xl mx-auto">
-          Create campaigns, upload proof images via Walrus, and receive donations
-          transparently on-chain.
+          Start a fundraiser, share your story with photos, and receive support
+          from people around the world — securely and transparently.
         </p>
         {!session && (
           <p className="mt-6 text-sm text-gray-500">
-            Sign in with Google (zkLogin) to create a campaign.
+            Sign in with Google to create your first campaign.
           </p>
         )}
         {session && (
@@ -45,6 +45,21 @@ export default function HomePage() {
             Start a Campaign
           </Link>
         )}
+      </div>
+
+      {/* How it works */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-14">
+        {[
+          { icon: "📸", title: "Add a photo", desc: "Upload a proof image with your campaign. Photos are stored securely and permanently." },
+          { icon: "🌍", title: "Share your cause", desc: "Tell your story and set a fundraising goal. Anyone can find and support your campaign." },
+          { icon: "💸", title: "Receive donations", desc: "Supporters send SUI coins directly to you. Every transaction is recorded and visible." },
+        ].map((item) => (
+          <div key={item.title} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 text-center">
+            <div className="text-3xl mb-3">{item.icon}</div>
+            <h3 className="font-semibold mb-2">{item.title}</h3>
+            <p className="text-sm text-gray-400">{item.desc}</p>
+          </div>
+        ))}
       </div>
 
       {/* Campaign feed */}

@@ -82,14 +82,14 @@ export default function ImageUpload({ onUploadComplete, onUploadError }: Props) 
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 border-2 border-[#4DA2FF] border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-gray-400">Uploading to Walrus...</p>
+            <p className="text-sm text-gray-400">Uploading your photo...</p>
           </div>
         ) : preview ? (
           <p className="text-sm text-gray-400">Click to change image</p>
         ) : (
           <div className="space-y-2">
             <p className="text-gray-300">Drop image here or click to browse</p>
-            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10 MB — stored on Walrus</p>
+            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10 MB — stored securely</p>
           </div>
         )}
       </div>
@@ -106,7 +106,7 @@ export default function ImageUpload({ onUploadComplete, onUploadError }: Props) 
           {uploadedBlobId && (
             <div className="absolute bottom-2 left-2 right-2 bg-black/70 rounded-lg px-3 py-1.5">
               <p className="text-xs text-green-400 font-mono truncate">
-                ✓ Walrus blob: {uploadedBlobId}
+                ✓ Photo uploaded successfully
               </p>
             </div>
           )}

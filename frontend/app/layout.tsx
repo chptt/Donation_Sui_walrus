@@ -4,8 +4,8 @@ import Providers from "./providers";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "SuiGive — Decentralized Donation Platform",
-  description: "Create and fund campaigns on Sui blockchain with Walrus image storage",
+  title: "Star Donation — Support Causes You Believe In",
+  description: "Create fundraising campaigns, upload proof photos, and receive donations securely and transparently.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

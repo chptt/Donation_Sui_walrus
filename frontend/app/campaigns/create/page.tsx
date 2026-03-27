@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * Create Campaign page.
- *
- * Flow:
- * 1. User fills in title, description, target amount.
- * 2. User uploads an image — ImageUpload sends it to Walrus and returns the blobId.
- *    The form submit is BLOCKED until a blobId exists (image is mandatory).
- * 3. On submit, createCampaignTx() stores the blobId permanently on-chain.
- */
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useZkLogin } from "@/context/ZkLoginContext";
@@ -31,7 +21,7 @@ export default function CreateCampaignPage() {
   if (!session) {
     return (
       <div className="text-center py-20 text-gray-400">
-        <p>You must be logged in to create a campaign.</p>
+        <p>Please sign in to create a campaign.</p>
       </div>
     );
   }
@@ -39,13 +29,14 @@ export default function CreateCampaignPage() {
   const handleUploadComplete = (blobId: string) => {
     setWalrusBlobId(blobId);
     setUploadError(null);
-  };  const handleSubmit = async (e: React.FormEvent) => {
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTxError(null);
 
-    // Mandatory image validation
     if (!walrusBlobId) {
-      setUploadError("A campaign image is required. Please upload one.");
+      setUploadError("A campaign photo is required. Please upload one.");
       return;
     }
 
@@ -57,16 +48,15 @@ export default function CreateCampaignPage() {
 
     setSubmitting(true);
     try {
-      const digest = await createCampaignTx(session, {
+      await createCampaignTx(session, {
         title: title.trim(),
         description: description.trim(),
         targetAmountMist: suiToMist(target),
-        walrusBlobId, // stored on-chain as the Walrus image reference
+        walrusBlobId,
       });
-      console.log("Campaign created, tx digest:", digest);
       router.push("/");
     } catch (err) {
-      setTxError(err instanceof Error ? err.message : "Transaction failed");
+      setTxError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -74,10 +64,10 @@ export default function CreateCampaignPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-8">Create a Campaign</h1>
+      <h1 className="text-2xl font-bold mb-2">Start a Campaign</h1>
+      <p className="text-gray-400 text-sm mb-8">Fill in the details below to launch your fundraiser.</p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Title */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Campaign Title <span className="text-red-400">*</span>
@@ -92,25 +82,23 @@ export default function CreateCampaignPage() {
           />
         </div>
 
-        {/* Description */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Description <span className="text-red-400">*</span>
+            Your Story <span className="text-red-400">*</span>
           </label>
           <textarea
             required
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Tell donors what this campaign is about..."
+            placeholder="Tell supporters what this campaign is about and how the funds will be used..."
             className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#4DA2FF] resize-none"
           />
         </div>
 
-        {/* Target amount */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Target Amount (SUI) <span className="text-red-400">*</span>
+            Fundraising Goal (SUI) <span className="text-red-400">*</span>
           </label>
           <input
             type="number"
@@ -124,12 +112,11 @@ export default function CreateCampaignPage() {
           />
         </div>
 
-        {/* Image upload — mandatory */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">
-            Campaign Image <span className="text-red-400">*</span>
+            Campaign Photo <span className="text-red-400">*</span>
             <span className="ml-2 text-xs text-gray-500 font-normal">
-              (stored on Walrus, reference saved on-chain)
+              (stored securely and permanently)
             </span>
           </label>
           <ImageUpload
@@ -141,7 +128,7 @@ export default function CreateCampaignPage() {
           )}
           {walrusBlobId && (
             <p className="mt-2 text-xs text-green-400">
-              Image uploaded to Walrus. Blob ID will be stored on-chain.
+              ✓ Photo uploaded and saved successfully.
             </p>
           )}
         </div>
@@ -157,12 +144,12 @@ export default function CreateCampaignPage() {
           disabled={submitting || !walrusBlobId}
           className="w-full bg-[#4DA2FF] hover:bg-blue-400 disabled:bg-gray-700 disabled:cursor-not-allowed text-black disabled:text-gray-500 font-semibold py-3 rounded-xl transition-colors"
         >
-          {submitting ? "Creating campaign..." : "Create Campaign"}
+          {submitting ? "Launching campaign..." : "Launch Campaign"}
         </button>
 
         {!walrusBlobId && (
           <p className="text-center text-xs text-gray-500">
-            Upload an image to enable campaign creation
+            Upload a photo to enable campaign creation
           </p>
         )}
       </form>
