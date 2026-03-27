@@ -1,0 +1,8 @@
+# Sui Move build artifacts
+contracts/build/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+frontend/.env.*.local
