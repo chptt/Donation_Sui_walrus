@@ -2,7 +2,7 @@
  * zkLogin helpers.
  *
  * HOW zkLogin WORKS (step by step):
- * 1. Generate an ephemeral Ed25519 keypair (short-lived, stored in sessionStorage).
+ * 1. Generate an ephemeral Ed25519 keypair (short-lived, stored in localStorage).
  * 2. Fetch the current epoch from Sui to define a validity window (maxEpoch).
  * 3. Build a nonce that commits to: ephemeral public key + maxEpoch + randomness.
  * 4. Redirect the user to Google OAuth with that nonce in the request.
@@ -11,8 +11,9 @@
  * 7. The prover returns a zero-knowledge proof (proves JWT ownership without revealing it).
  * 8. Combine the ZK proof + ephemeral signature to form a valid Sui transaction signature.
  *
- * The user's Sui address is derived deterministically from their Google `sub` + a salt.
- * No long-term private key is ever stored — identity = wallet address.
+ * NOTE: We use localStorage (not sessionStorage) for pre-auth data because
+ * sessionStorage is cleared during cross-origin OAuth redirects in some browsers.
+ * Post-auth session data (proof, JWT, address) also uses localStorage for persistence.
  */
 
 import {
@@ -25,14 +26,14 @@ import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { SuiClient } from "@mysten/sui/client";
 import { GOOGLE_CLIENT_ID, REDIRECT_URI, PROVER_URL } from "./constants";
 
-// ─── SessionStorage keys ──────────────────────────────────────────────────────
+// ─── Storage keys (all in localStorage to survive cross-origin redirects) ─────
 const KEY_EPHEMERAL_SECRET = "zklogin_ephemeral_secret";
-const KEY_MAX_EPOCH = "zklogin_max_epoch";
-const KEY_RANDOMNESS = "zklogin_randomness";
-const KEY_USER_SALT = "zklogin_user_salt";
-const KEY_ZK_PROOF = "zklogin_proof";
-const KEY_JWT = "zklogin_jwt";
-const KEY_ADDRESS = "zklogin_address";
+const KEY_MAX_EPOCH        = "zklogin_max_epoch";
+const KEY_RANDOMNESS       = "zklogin_randomness";
+const KEY_USER_SALT        = "zklogin_salt";
+const KEY_ZK_PROOF         = "zklogin_proof";
+const KEY_JWT              = "zklogin_jwt";
+const KEY_ADDRESS          = "zklogin_address";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,34 +64,30 @@ export interface ZkProof {
 
 /**
  * Generates an ephemeral keypair, builds a nonce, and redirects to Google OAuth.
- * Call this when the user clicks "Login with Google".
+ * All pre-auth data is stored in localStorage so it survives the cross-origin redirect.
  */
 export async function initiateZkLogin(suiClient: SuiClient): Promise<void> {
   const ephemeralKeypair = new Ed25519Keypair();
 
-  // Fetch current epoch to set the validity window
   const { epoch } = await suiClient.getLatestSuiSystemState();
-  const maxEpoch = Number(epoch) + 10; // valid for ~10 epochs
+  const maxEpoch = Number(epoch) + 10;
 
   const randomness = generateRandomness();
 
-  // Nonce commits to: ephemeral pubkey + maxEpoch + randomness
   const nonce = generateNonce(
     ephemeralKeypair.getPublicKey(),
     maxEpoch,
     randomness
   );
 
-  // Store the secret key bytes (Uint8Array → base64 string for safe storage)
-  const secretKey = ephemeralKeypair.getSecretKey(); // returns base64url string in newer SDK
-  sessionStorage.setItem(KEY_EPHEMERAL_SECRET, secretKey);
-  sessionStorage.setItem(KEY_MAX_EPOCH, String(maxEpoch));
-  sessionStorage.setItem(KEY_RANDOMNESS, randomness);
-
   const userSalt = getOrCreateUserSalt();
-  sessionStorage.setItem(KEY_USER_SALT, userSalt);
 
-  // Redirect to Google OAuth — execution stops here
+  // Store in localStorage — survives cross-origin OAuth redirect
+  localStorage.setItem(KEY_EPHEMERAL_SECRET, ephemeralKeypair.getSecretKey());
+  localStorage.setItem(KEY_MAX_EPOCH, String(maxEpoch));
+  localStorage.setItem(KEY_RANDOMNESS, randomness);
+  localStorage.setItem(KEY_USER_SALT, userSalt);
+
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
@@ -106,7 +103,7 @@ export async function initiateZkLogin(suiClient: SuiClient): Promise<void> {
 
 /**
  * Called on the /auth/callback page after Google redirects back.
- * Extracts the JWT from the URL hash, calls the Mysten prover, stores the session.
+ * Reads pre-auth data from localStorage, calls the prover, stores the session.
  */
 export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
   // Google returns the JWT in the URL fragment: #id_token=<jwt>&...
@@ -116,27 +113,22 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
 
   if (!jwt) return null;
 
-  const secretKey = sessionStorage.getItem(KEY_EPHEMERAL_SECRET);
-  const maxEpoch = Number(sessionStorage.getItem(KEY_MAX_EPOCH));
-  const randomness = sessionStorage.getItem(KEY_RANDOMNESS) ?? "";
-  const userSalt = sessionStorage.getItem(KEY_USER_SALT) ?? getOrCreateUserSalt();
+  const secretKey  = localStorage.getItem(KEY_EPHEMERAL_SECRET);
+  const maxEpoch   = Number(localStorage.getItem(KEY_MAX_EPOCH));
+  const randomness = localStorage.getItem(KEY_RANDOMNESS) ?? "";
+  const userSalt   = localStorage.getItem(KEY_USER_SALT) ?? getOrCreateUserSalt();
 
   if (!secretKey || !maxEpoch || !randomness) {
     throw new Error("zkLogin session data missing. Please log in again.");
   }
 
-  // Restore the ephemeral keypair from the stored secret key
   const ephemeralKeypair = Ed25519Keypair.fromSecretKey(secretKey);
-
-  // Derive the Sui address from the JWT sub claim + salt
   const address = jwtToAddress(jwt, userSalt);
 
-  // Build the extended ephemeral public key for the prover request
   const extendedEphemeralPublicKey = getExtendedEphemeralPublicKey(
     ephemeralKeypair.getPublicKey()
   );
 
-  // Request a ZK proof from the Mysten prover service
   const proofResponse = await fetch(PROVER_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -157,33 +149,29 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
 
   const proof: ZkProof = await proofResponse.json();
 
-  // Persist the full session
-  sessionStorage.setItem(KEY_JWT, jwt);
-  sessionStorage.setItem(KEY_ZK_PROOF, JSON.stringify(proof));
-  sessionStorage.setItem(KEY_ADDRESS, address);
+  // Persist full session in localStorage
+  localStorage.setItem(KEY_JWT, jwt);
+  localStorage.setItem(KEY_ZK_PROOF, JSON.stringify(proof));
+  localStorage.setItem(KEY_ADDRESS, address);
 
   return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt };
 }
 
 // ─── Session retrieval ────────────────────────────────────────────────────────
 
-/**
- * Restore a zkLogin session from sessionStorage.
- * Returns null if the user is not logged in or session has expired.
- */
 export function getZkLoginSession(): ZkLoginSession | null {
   try {
-    const address = sessionStorage.getItem(KEY_ADDRESS);
-    const jwt = sessionStorage.getItem(KEY_JWT);
-    const proofRaw = sessionStorage.getItem(KEY_ZK_PROOF);
-    const secretKey = sessionStorage.getItem(KEY_EPHEMERAL_SECRET);
-    const maxEpoch = Number(sessionStorage.getItem(KEY_MAX_EPOCH));
-    const randomness = sessionStorage.getItem(KEY_RANDOMNESS) ?? "";
-    const userSalt = sessionStorage.getItem(KEY_USER_SALT) ?? "";
+    const address   = localStorage.getItem(KEY_ADDRESS);
+    const jwt       = localStorage.getItem(KEY_JWT);
+    const proofRaw  = localStorage.getItem(KEY_ZK_PROOF);
+    const secretKey = localStorage.getItem(KEY_EPHEMERAL_SECRET);
+    const maxEpoch  = Number(localStorage.getItem(KEY_MAX_EPOCH));
+    const randomness = localStorage.getItem(KEY_RANDOMNESS) ?? "";
+    const userSalt  = localStorage.getItem(KEY_USER_SALT) ?? "";
 
     if (!address || !jwt || !proofRaw || !secretKey) return null;
 
-    const proof: ZkProof = JSON.parse(proofRaw);
+    const proof = JSON.parse(proofRaw) as ZkProof;
     const ephemeralKeypair = Ed25519Keypair.fromSecretKey(secretKey);
 
     return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt };
@@ -202,30 +190,20 @@ export function clearZkLoginSession(): void {
     KEY_ZK_PROOF,
     KEY_JWT,
     KEY_ADDRESS,
-  ].forEach((k) => sessionStorage.removeItem(k));
+  ].forEach((k) => localStorage.removeItem(k));
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Get or create a stable per-browser salt stored in localStorage.
- * The salt is a large random BigInt string — required format for jwtToAddress().
- *
- * NOTE: In production, use a dedicated salt service keyed to the user's `sub`
- * so the same Google account always maps to the same Sui address across devices.
- */
 function getOrCreateUserSalt(): string {
-  const existing = localStorage.getItem("zklogin_salt");
+  const existing = localStorage.getItem(KEY_USER_SALT);
   if (existing) return existing;
 
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const salt = BigInt(
-    "0x" +
-      Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("")
+    "0x" + Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")
   ).toString();
 
-  localStorage.setItem("zklogin_salt", salt);
+  localStorage.setItem(KEY_USER_SALT, salt);
   return salt;
 }
