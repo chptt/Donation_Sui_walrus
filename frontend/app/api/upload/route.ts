@@ -1,10 +1,7 @@
 /**
  * Server-side proxy for Walrus uploads.
- *
- * The browser sends the image to this Next.js API route.
- * The server (running on Vercel) forwards it to the Walrus publisher.
- * This avoids ERR_CERT_AUTHORITY_INVALID errors that occur when the
- * browser tries to directly connect to the Walrus testnet endpoint.
+ * Forwards image bytes from the browser to the Walrus publisher.
+ * Avoids ERR_CERT_AUTHORITY_INVALID that occurs in browsers on testnet.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,29 +17,54 @@ export async function PUT(req: NextRequest) {
     const contentType = req.headers.get("content-type") ?? "application/octet-stream";
     const body = await req.arrayBuffer();
 
-    const walrusRes = await fetch(
-      `${WALRUS_PUBLISHER}/v1/store?epochs=${EPOCHS}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body,
-      }
-    );
+    if (body.byteLength === 0) {
+      return NextResponse.json({ error: "Empty file" }, { status: 400 });
+    }
 
-    const data = await walrusRes.json();
+    let walrusRes: Response;
+    try {
+      walrusRes = await fetch(
+        `${WALRUS_PUBLISHER}/v1/store?epochs=${EPOCHS}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": contentType },
+          body,
+          // @ts-expect-error - Node fetch supports this
+          duplex: "half",
+        }
+      );
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error("Walrus fetch error:", msg);
+      return NextResponse.json(
+        { error: `Could not reach Walrus publisher: ${msg}` },
+        { status: 502 }
+      );
+    }
+
+    const text = await walrusRes.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error("Walrus non-JSON response:", text);
+      return NextResponse.json(
+        { error: `Walrus returned unexpected response: ${text.slice(0, 200)}` },
+        { status: 502 }
+      );
+    }
 
     if (!walrusRes.ok) {
       return NextResponse.json(
-        { error: `Walrus error: ${JSON.stringify(data)}` },
+        { error: `Walrus error ${walrusRes.status}: ${text.slice(0, 200)}` },
         { status: walrusRes.status }
       );
     }
 
     return NextResponse.json(data);
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Upload failed" },
-      { status: 500 }
-    );
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Upload route error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
