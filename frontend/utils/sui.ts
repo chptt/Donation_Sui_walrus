@@ -138,9 +138,15 @@ async function executeWithZkLogin(
   });
 
   if (result.effects?.status?.status !== "success") {
-    throw new Error(
-      "Transaction failed: " + JSON.stringify(result.effects?.status)
-    );
+    const errMsg = JSON.stringify(result.effects?.status);
+    // Groth16 / signature errors mean the zkLogin proof is stale — force re-login
+    if (errMsg.includes("Groth16") || errMsg.includes("signature") || errMsg.includes("proof")) {
+      // Clear stale session so user gets prompted to re-login
+      const { clearZkLoginSession } = await import("./zklogin");
+      clearZkLoginSession();
+      throw new Error("Your session has expired. Please sign out and sign in again.");
+    }
+    throw new Error("Transaction failed: " + errMsg);
   }
 
   return result.digest;

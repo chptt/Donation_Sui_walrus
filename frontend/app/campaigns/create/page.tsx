@@ -57,7 +57,16 @@ export default function CreateCampaignPage() {
       });
       router.push("/");
     } catch (err) {
-      setTxError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      // If session expired, clear it so the navbar shows login button
+      if (msg.includes("expired") || msg.includes("sign in again")) {
+        if (typeof window !== "undefined") {
+          const { clearZkLoginSession } = await import("@/utils/zklogin");
+          clearZkLoginSession();
+          window.location.reload();
+        }
+      }
+      setTxError(msg);
     } finally {
       setSubmitting(false);
     }
