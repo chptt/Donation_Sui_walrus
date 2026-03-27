@@ -1,7 +1,3 @@
-/**
- * Pages Router API route for Walrus upload proxy.
- * Using pages/api instead of app/api for better Vercel compatibility.
- */
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const WALRUS_PUBLISHER =
@@ -9,7 +5,11 @@ const WALRUS_PUBLISHER =
   "https://publisher.walrus-testnet.walrus.space";
 
 export const config = {
-  api: { bodyParser: { sizeLimit: "10mb" } },
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -22,21 +22,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const contentType = (req.headers["content-type"] as string) ?? "application/octet-stream";
+    const contentType =
+      (req.headers["content-type"] as string) ?? "application/octet-stream";
 
-    // req.body is already parsed as Buffer when bodyParser is enabled
-    const body: Buffer = Buffer.isBuffer(req.body)
-      ? req.body
-      : Buffer.from(req.body);
+    // Convert body to Uint8Array — compatible with fetch BodyInit
+    let bodyBytes: Uint8Array;
+    if (Buffer.isBuffer(req.body)) {
+      bodyBytes = new Uint8Array(req.body);
+    } else if (typeof req.body === "string") {
+      bodyBytes = new TextEncoder().encode(req.body);
+    } else {
+      bodyBytes = new Uint8Array(Buffer.from(JSON.stringify(req.body)));
+    }
 
-    if (!body || body.length === 0) {
+    if (bodyBytes.length === 0) {
       return res.status(400).json({ error: "Empty file" });
     }
 
     const walrusRes = await fetch(`${WALRUS_PUBLISHER}/v1/store?epochs=5`, {
       method: "PUT",
       headers: { "Content-Type": contentType },
-      body,
+      body: bodyBytes,
     });
 
     const text = await walrusRes.text();
