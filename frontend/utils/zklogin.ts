@@ -126,7 +126,8 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
   }
 
   const ephemeralKeypair = Ed25519Keypair.fromSecretKey(secretKey);
-  const address = jwtToAddress(jwt, userSalt);
+  // Try legacy address format first (prover-dev uses legacy circuit)
+  const address = jwtToAddress(jwt, userSalt, true);
 
   const extendedEphemeralPublicKey = getExtendedEphemeralPublicKey(
     ephemeralKeypair.getPublicKey()
@@ -152,11 +153,13 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
 
   const proof: ZkProof = await proofResponse.json();
 
-  // Compute addressSeed from JWT claims + salt (must match what the prover used)
   const decodedJwt = decodeJwt(jwt);
   const addressSeed: string = (proof as ZkProof & { addressSeed?: string }).addressSeed
-    ?? genAddressSeed(BigInt(userSalt), "sub", decodedJwt.sub as string,
-        Array.isArray(decodedJwt.aud) ? decodedJwt.aud[0] as string : decodedJwt.aud as string
+    ?? genAddressSeed(
+        BigInt(userSalt),
+        "sub",
+        decodedJwt.sub as string,
+        Array.isArray(decodedJwt.aud) ? decodedJwt.aud[0] as string : decodedJwt.aud as string,
        ).toString();
 
   // Persist full session in localStorage
