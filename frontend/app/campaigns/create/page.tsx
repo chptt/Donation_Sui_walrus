@@ -49,12 +49,15 @@ export default function CreateCampaignPage() {
 
     setSubmitting(true);
     try {
-      await createCampaignTx(session, {
+      const digest = await createCampaignTx(session, {
         title: title.trim(),
         description: description.trim(),
         targetAmountMist: suiToMist(target),
         walrusBlobId,
       });
+      console.log("Campaign created:", digest);
+      // Small delay to allow the indexer to pick up the event before redirecting
+      await new Promise((r) => setTimeout(r, 2000));
       router.push("/");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";

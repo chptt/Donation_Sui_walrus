@@ -63,7 +63,22 @@ export default function HomePage() {
       </div>
 
       {/* Campaign feed */}
-      <h2 className="text-xl font-semibold mb-6">Active Campaigns</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold">Active Campaigns</h2>
+        <button
+          onClick={() => {
+            setLoading(true);
+            setError(null);
+            fetchAllCampaigns()
+              .then(setCampaigns)
+              .catch((e) => setError(e.message))
+              .finally(() => setLoading(false));
+          }}
+          className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          ↻ Refresh
+        </button>
+      </div>
 
       {loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
