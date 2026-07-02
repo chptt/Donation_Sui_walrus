@@ -142,12 +142,17 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
 
   const proof: ZkProof = await proofResponse.json();
 
+  // Enoki returns addressSeed in the proof response — use it directly
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const enokiAddressSeed = (proof as any).addressSeed as string | undefined;
+  const finalAddressSeed = enokiAddressSeed ?? addressSeed;
+
   localStorage.setItem(KEY_JWT, jwt);
   localStorage.setItem(KEY_ZK_PROOF, JSON.stringify(proof));
   localStorage.setItem(KEY_ADDRESS, address);
-  localStorage.setItem(KEY_ADDRESS_SEED, addressSeed);
+  localStorage.setItem(KEY_ADDRESS_SEED, finalAddressSeed);
 
-  return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt, addressSeed };
+  return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt, addressSeed: finalAddressSeed };
 }
 
 export function getZkLoginSession(): ZkLoginSession | null {
