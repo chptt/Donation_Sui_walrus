@@ -190,11 +190,12 @@ export function getZkLoginSession(): ZkLoginSession | null {
 }
 
 export function clearZkLoginSession(): void {
+  // NOTE: KEY_USER_SALT is intentionally NOT cleared — it must persist so
+  // the same Google account always maps to the same Sui address on this browser.
   [
     KEY_EPHEMERAL_SECRET,
     KEY_MAX_EPOCH,
     KEY_RANDOMNESS,
-    KEY_USER_SALT,
     KEY_ZK_PROOF,
     KEY_JWT,
     KEY_ADDRESS,
