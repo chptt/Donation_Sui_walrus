@@ -184,18 +184,23 @@ export default function Navbar() {
               {faucetMsg && (
                 <p className={`text-sm text-center ${faucetMsg.startsWith("✓") ? "text-green-400" : "text-yellow-400"}`}>
                   {faucetMsg}
+                  {faucetMsg.includes("rate limit") && (
+                    <span className="block text-xs text-gray-500 mt-1">
+                      Try the link below or use Sui Discord #testnet-faucet
+                    </span>
+                  )}
                 </p>
               )}
               {/* Fallback if rate limited */}
               <p className="text-xs text-gray-600 text-center">
-                Rate limited? Copy your address above and use{" "}
+                Rate limited? Use the official faucet directly:{" "}
                 <a
-                  href="https://faucet.testnet.sui.io"
+                  href={`https://faucet.testnet.sui.io/?address=${session.address}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-[#4DA2FF] underline"
                 >
-                  faucet.testnet.sui.io
+                  Click here (address pre-filled)
                 </a>
               </p>
             </div>
