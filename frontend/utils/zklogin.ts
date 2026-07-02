@@ -147,12 +147,21 @@ export async function handleZkLoginCallback(): Promise<ZkLoginSession | null> {
   const enokiAddressSeed = (proof as any).addressSeed as string | undefined;
   const finalAddressSeed = enokiAddressSeed ?? addressSeed;
 
+  // Derive the address from the addressSeed that will actually be used in the signature
+  // This ensures session.address matches what the zkLogin signature proves
+  const { computeZkLoginAddressFromSeed } = await import("@mysten/sui/zklogin");
+  const decoded2 = decodeJwt(jwt);
+  const iss = decoded2.iss as string;
+  const finalAddress = finalAddressSeed
+    ? computeZkLoginAddressFromSeed(BigInt(finalAddressSeed), iss)
+    : address;
+
   localStorage.setItem(KEY_JWT, jwt);
   localStorage.setItem(KEY_ZK_PROOF, JSON.stringify(proof));
-  localStorage.setItem(KEY_ADDRESS, address);
+  localStorage.setItem(KEY_ADDRESS, finalAddress);
   localStorage.setItem(KEY_ADDRESS_SEED, finalAddressSeed);
 
-  return { address, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt, addressSeed: finalAddressSeed };
+  return { address: finalAddress, jwt, proof, ephemeralKeypair, maxEpoch, randomness, userSalt, addressSeed: finalAddressSeed };
 }
 
 export function getZkLoginSession(): ZkLoginSession | null {
