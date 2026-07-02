@@ -159,9 +159,26 @@ export function getZkLoginSession(): ZkLoginSession | null {
     const maxEpoch    = Number(localStorage.getItem(KEY_MAX_EPOCH));
     const randomness  = localStorage.getItem(KEY_RANDOMNESS) ?? "";
     const userSalt    = localStorage.getItem(KEY_USER_SALT) ?? "";
-    const addressSeed = localStorage.getItem(KEY_ADDRESS_SEED) ?? "";
+    let addressSeed   = localStorage.getItem(KEY_ADDRESS_SEED) ?? "";
 
-    if (!address || !jwt || !proofRaw || !secretKey || !addressSeed) return null;
+    if (!address || !jwt || !proofRaw || !secretKey) return null;
+
+    // Recompute addressSeed if missing (backwards compat for old sessions)
+    if (!addressSeed && jwt && userSalt) {
+      try {
+        const decoded = decodeJwt(jwt);
+        const sub = decoded.sub as string;
+        const aud = Array.isArray(decoded.aud)
+          ? (decoded.aud[0] as string)
+          : (decoded.aud as string);
+        addressSeed = genAddressSeed(BigInt(userSalt), "sub", sub, aud).toString();
+        localStorage.setItem(KEY_ADDRESS_SEED, addressSeed);
+      } catch {
+        return null;
+      }
+    }
+
+    if (!addressSeed) return null;
 
     const proof = JSON.parse(proofRaw) as ZkProof;
     const ephemeralKeypair = Ed25519Keypair.fromSecretKey(secretKey);

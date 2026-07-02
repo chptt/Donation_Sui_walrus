@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * ZkLoginContext — provides the current zkLogin session to all components.
- * No traditional auth (no JWT cookies, no DB users) — identity = wallet address.
- */
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { getZkLoginSession, clearZkLoginSession, initiateZkLogin } from "@/utils/zklogin";
 import { suiClient } from "@/utils/sui";
@@ -15,6 +10,7 @@ interface ZkLoginContextValue {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => void;
+  refreshSession: () => void;
 }
 
 const ZkLoginContext = createContext<ZkLoginContextValue | null>(null);
@@ -23,18 +19,22 @@ export function ZkLoginProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<ZkLoginSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session from sessionStorage on mount
-  useEffect(() => {
+  const refreshSession = useCallback(() => {
     const s = getZkLoginSession();
     setSession(s);
-    setIsLoading(false);
   }, []);
+
+  // Read session on mount
+  useEffect(() => {
+    refreshSession();
+    setIsLoading(false);
+  }, [refreshSession]);
 
   const login = useCallback(async () => {
     setIsLoading(true);
     try {
       await initiateZkLogin(suiClient);
-      // Page will redirect to Google — execution stops here
+      // Redirects to Google — execution stops here
     } catch (err) {
       console.error("zkLogin initiation failed:", err);
       setIsLoading(false);
@@ -47,7 +47,7 @@ export function ZkLoginProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <ZkLoginContext.Provider value={{ session, isLoading, login, logout }}>
+    <ZkLoginContext.Provider value={{ session, isLoading, login, logout, refreshSession }}>
       {children}
     </ZkLoginContext.Provider>
   );
