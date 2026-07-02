@@ -7,6 +7,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 const ENOKI_API_KEY = process.env.ENOKI_API_KEY;
+const ENOKI_PUBLIC_KEY = process.env.NEXT_PUBLIC_ENOKI_API_KEY;
 const ENOKI_PROVER  = "https://api.enoki.mystenlabs.com/v1/zklogin/zkp";
 const DEV_PROVER    = "https://prover-dev.mystenlabs.com/v1";
 
@@ -17,13 +18,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = req.body;
     let proverRes: Response;
 
-    if (ENOKI_API_KEY) {
-      console.log("Using Enoki prover");
+    if (ENOKI_API_KEY || ENOKI_PUBLIC_KEY) {
+      const apiKey = ENOKI_API_KEY || ENOKI_PUBLIC_KEY;
+      console.log("Using Enoki prover with key:", apiKey?.slice(0, 20) + "...");
       proverRes = await fetch(ENOKI_PROVER, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${ENOKI_API_KEY}`,
+          "Authorization": `Bearer ${apiKey}`,
           "zklogin-jwt": body.jwt,
         },
         body: JSON.stringify({
