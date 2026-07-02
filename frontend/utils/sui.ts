@@ -39,6 +39,49 @@ export interface CampaignOnChain {
  * `walrusBlobId` is the string returned by Walrus after uploading the image.
  * It is stored permanently inside the Campaign shared object on Sui.
  */
+export async function createCampaignTxWithId(
+  session: ZkLoginSession,
+  params: {
+    title: string;
+    description: string;
+    targetAmountMist: bigint;
+    walrusBlobId: string;
+  }
+): Promise<{ digest: string; campaignId: string | null }> {
+  const tx = new Transaction();
+
+  tx.moveCall({
+    target: `${PACKAGE_ID}::${MODULE_NAME}::create_campaign`,
+    arguments: [
+      tx.pure.vector("u8", Array.from(new TextEncoder().encode(params.title))),
+      tx.pure.vector("u8", Array.from(new TextEncoder().encode(params.description))),
+      tx.pure.u64(params.targetAmountMist),
+      tx.pure.vector("u8", Array.from(new TextEncoder().encode(params.walrusBlobId))),
+    ],
+  });
+
+  tx.setSender(session.address);
+  const digest = await executeWithZkLogin(tx, session);
+
+  // Fetch the transaction to extract the campaign object ID from created objects
+  try {
+    const txData = await suiClient.getTransactionBlock({
+      digest,
+      options: { showObjectChanges: true, showEvents: true },
+    });
+
+    // Find campaign ID from events
+    const event = txData.events?.find(
+      (e) => e.type.includes("CampaignCreated")
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const campaignId = (event?.parsedJson as any)?.campaign_id ?? null;
+    return { digest, campaignId };
+  } catch {
+    return { digest, campaignId: null };
+  }
+}
+
 export async function createCampaignTx(
   session: ZkLoginSession,
   params: {

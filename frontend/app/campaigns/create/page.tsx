@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useZkLogin } from "@/context/ZkLoginContext";
-import { createCampaignTx, suiToMist } from "@/utils/sui";
+import { createCampaignTxWithId, suiToMist } from "@/utils/sui";
 import ImageUpload from "@/components/ImageUpload";
 
 export default function CreateCampaignPage() {
@@ -49,16 +49,19 @@ export default function CreateCampaignPage() {
 
     setSubmitting(true);
     try {
-      const digest = await createCampaignTx(session, {
+      const { digest, campaignId } = await createCampaignTxWithId(session, {
         title: title.trim(),
         description: description.trim(),
         targetAmountMist: suiToMist(target),
         walrusBlobId,
       });
-      console.log("Campaign created:", digest);
-      // Small delay to allow the indexer to pick up the event before redirecting
-      await new Promise((r) => setTimeout(r, 2000));
-      router.push("/");
+      console.log("Campaign created:", digest, campaignId);
+      if (campaignId) {
+        router.push(`/campaigns/${campaignId}`);
+      } else {
+        await new Promise((r) => setTimeout(r, 2000));
+        router.push("/");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       // If session expired, clear it so the navbar shows login button
